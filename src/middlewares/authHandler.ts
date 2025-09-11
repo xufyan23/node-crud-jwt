@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { config } from "../config";
 
 interface AuthRequest extends Request {
   user?: string;
@@ -20,7 +19,7 @@ export const protect = (
   const token = authHeader.split(" ")[1]; // Extract token from "Bearer <token;
 
   try {
-    const decoded = jwt.verify(token, config.jwt.secret);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string);
     req.user = decoded as string;
     next();
   } catch (err: any) {
