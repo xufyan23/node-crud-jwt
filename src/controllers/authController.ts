@@ -1,8 +1,7 @@
 import { Response, Request, NextFunction } from "express";
-import jwt, {SignOptions, JwtPayload} from "jsonwebtoken";
+import jwt, { SignOptions, JwtPayload } from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import { User } from "../models/user.model";
-import { config } from "../config";
 
 const signJwt = (payload: object, secret: string, options: SignOptions) => {
   return jwt.sign(payload, secret, options);
@@ -51,17 +50,19 @@ export const login = async (
 
     // Access JWT
     const token = signJwt(
-			{ userId: user._id },
-			config.jwt.secret as string,
-			{expiresIn: config.jwt.expiresIn,
-    } as SignOptions);
+      { userId: user._id },
+      process.env.JWT_SECRET as string,
+      {
+        expiresIn: process.env.JWT_EXPIRES_IN,
+      } as SignOptions
+    );
 
     //refresh Token
     const refreshToken = signJwt(
       { userId: user._id },
-      config.jwt.refreshSecret as string,
+      process.env.JWT_REFRESH_SECRET as string,
       {
-        expiresIn: config.jwt.refreshExpiresIn,
+        expiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
       } as SignOptions
     );
 
@@ -84,7 +85,7 @@ export const refreshToken = async (
     //verify token
     jwt.verify(
       token,
-      config.jwt.refreshSecret as string,
+      process.env.JWT_REFRESH_SECRET as string,
       (err: any, decoded: any) => {
         if (err) {
           return res.status(401).json({ message: "Invalid refresh token" });
@@ -93,9 +94,9 @@ export const refreshToken = async (
         //create new token
         const newToken = signJwt(
           { userId: decoded.userId },
-          config.jwt.secret as string,
+          process.env.JWT_SECRET as string,
           {
-            expiresIn: config.jwt.expiresIn,
+            expiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
           } as SignOptions
         );
         res.json({ success: true, token: newToken });
