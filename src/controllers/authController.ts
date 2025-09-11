@@ -1,9 +1,12 @@
 import { Response, Request, NextFunction } from "express";
-import Jwt from "jsonwebtoken";
+import jwt, {SignOptions, JwtPayload} from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import { User } from "../models/user.model";
+import { config } from "../config";
 
-const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret";
+const signJwt = (payload: object, secret: string, options: SignOptions) => {
+  return jwt.sign(payload, secret, options);
+};
 
 export const register = async (
   req: Request,
@@ -46,12 +49,58 @@ export const login = async (
       return res.status(400).json({ message: "Invalid email or password" });
     }
 
-    // Generate JWT
-    const token = Jwt.sign({ userId: user._id }, JWT_SECRET, {
-      expiresIn: "1h",
-    });
+    // Access JWT
+    const token = signJwt(
+			{ userId: user._id },
+			config.jwt.secret as string,
+			{expiresIn: config.jwt.expiresIn,
+    } as SignOptions);
 
-    res.json({ success: true, token });
+    //refresh Token
+    const refreshToken = signJwt(
+      { userId: user._id },
+      config.jwt.refreshSecret as string,
+      {
+        expiresIn: config.jwt.refreshExpiresIn,
+      } as SignOptions
+    );
+
+    res.json({ success: true, token, refreshToken });
+  } catch (err: any) {
+    next(err);
+  }
+};
+
+export const refreshToken = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { token } = req.body;
+    if (!token) {
+      return res.status(400).json({ message: "Refresh token is required" });
+    }
+    //verify token
+    jwt.verify(
+      token,
+      config.jwt.refreshSecret as string,
+      (err: any, decoded: any) => {
+        if (err) {
+          return res.status(401).json({ message: "Invalid refresh token" });
+        }
+
+        //create new token
+        const newToken = signJwt(
+          { userId: decoded.userId },
+          config.jwt.secret as string,
+          {
+            expiresIn: config.jwt.expiresIn,
+          } as SignOptions
+        );
+        res.json({ success: true, token: newToken });
+      }
+    );
   } catch (err: any) {
     next(err);
   }
