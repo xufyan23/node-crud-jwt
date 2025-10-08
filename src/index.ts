@@ -1,17 +1,26 @@
-import express, { Application } from "express";
-import { errorHandler } from "./middlewares/ErrorHandler";
-import userRoutes from "./routes/userRoutes";
-import authRoutes from "./routes/authRoutes";
-import { connectDb } from "./lib/mongo-service";
 import dotenv from "dotenv";
 dotenv.config();
+
+import express, { Application } from "express";
+import passport from "passport";
+import "./utils/Passport";
+
+import userRoutes from "./routes/userRoutes";
+import authRoutes from "./routes/authRoutes";
+import fileRoutes from "./routes/fileRoutes";
+
+import { connectDb } from "./lib/mongo-service";
+import { errorHandler } from "./middlewares/ErrorHandler";
 
 const app: Application = express();
 
 //middleware
 app.use(express.json()); //parse JSON request and put data in req.body
 
+app.use(passport.initialize());
+
 app.use("/api/auth", authRoutes);
+app.use("/api/files", fileRoutes);
 app.use("/api/users", userRoutes);
 
 app.use(errorHandler);

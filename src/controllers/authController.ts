@@ -12,6 +12,7 @@ export const register = async (
   res: Response,
   next: NextFunction
 ) => {
+  console.log("📩 Register hit:", req.body);
   try {
     const { name, email, password } = req.body;
 
@@ -23,7 +24,9 @@ export const register = async (
 
     // Hash the password before saving
     const hashedPassword = await bcrypt.hash(password, 10);
+    console.log(hashedPassword);
     const user = new User({ name, email, password: hashedPassword });
+    console.log("user", user);
     await user.save();
     res.status(201).json({ message: "User registered successfully" });
   } catch (err: any) {
@@ -36,39 +39,54 @@ export const login = async (
   res: Response,
   next: NextFunction
 ) => {
+  console.log("login");
   try {
-    const { email, password } = req.body;
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ message: "Invalid email or password" });
-    }
-    //compare password
-    const isMatch = await bcrypt.compare(password, user.password || "");
-    if (!isMatch) {
-      return res.status(400).json({ message: "Invalid email or password" });
-    }
+    const user = req.user as any; // safeUser returned by LocalStrategy
+    if (!user) return res.status(401).json({ message: "Unauthorized" });
 
-    // Access JWT
+    // Sign access token with payload { id, role }
     const token = signJwt(
-      { userId: user._id },
+      { id: user.userId, role: user.role },
       process.env.JWT_SECRET as string,
-      {
-        expiresIn: process.env.JWT_EXPIRES_IN,
-      } as SignOptions
+      { expiresIn: process.env.JWT_EXPIRES_IN } as SignOptions
     );
 
-    //refresh Token
     const refreshToken = signJwt(
-      { userId: user._id },
+      { id: user.userId },
       process.env.JWT_REFRESH_SECRET as string,
-      {
-        expiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
-      } as SignOptions
+      { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN } as SignOptions
     );
 
-    res.json({ success: true, token, refreshToken });
+    return res.json({ success: true, token, refreshToken });
   } catch (err: any) {
-    next(err);
+    return next(err);
+  }
+};
+
+export const googleCallback = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const user = req.user as any; // safeUser from GoogleStrategy
+    if (!user) return res.status(401).json({ message: "Unauthorized" });
+
+    const token = signJwt(
+      { id: user.userId, role: user.role },
+      process.env.JWT_SECRET as string,
+      { expiresIn: process.env.JWT_EXPIRES_IN } as SignOptions
+    );
+
+    const refreshToken = signJwt(
+      { id: user.userId },
+      process.env.JWT_REFRESH_SECRET as string,
+      { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN } as SignOptions
+    );
+
+    return res.json({ success: true, token, refreshToken });
+  } catch (err: any) {
+    return next(err);
   }
 };
 
@@ -93,10 +111,10 @@ export const refreshToken = async (
 
         //create new token
         const newToken = signJwt(
-          { userId: decoded.userId },
+          { id: decoded.id, role: decoded.role },
           process.env.JWT_SECRET as string,
           {
-            expiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
+            expiresIn: process.env.JWT_EXPIRES_IN,
           } as SignOptions
         );
         res.json({ success: true, token: newToken });

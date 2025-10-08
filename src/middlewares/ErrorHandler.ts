@@ -7,10 +7,15 @@ export const errorHandler = (
   next: NextFunction
 ) => {
   const statusCode = res.statusCode !== 200 ? res.statusCode : 500;
-  res.status(statusCode).json({
-    message: err.message,
+  const payload: any = {
     success: false,
     status: statusCode,
-    stack: process.env.NODE_ENV === "development" ? null : err.stack,
-  });
+    message: err.message || "something went wrong",
+  };
+
+  if (process.env.NODE_ENV !== "production") {
+    payload.stack = err.stack;
+  }
+
+  res.status(statusCode).json(payload);
 };
